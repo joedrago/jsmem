@@ -1,0 +1,36 @@
+<html>
+<head>
+<link rel="stylesheet" href="themes/default/style.min.css" />
+<script src="jquery-1.11.0.min.js"></script>
+<script src="jstree.min.js"></script>
+<script type="text/javascript" src="jstreegrid.js"></script>
+</head>
+<body>
+<div id="jsmemtree" class="demo">
+</div>
+<script>
+$(function () {
+    $('#jsmemtree').jstree({
+        'plugins' : [ "grid" ],
+        'core' : {
+            'data' : {
+                'url' : '/data',
+                'data' : function (node) {
+                    return { 'id' : node.id };
+                }
+            }
+        },
+        grid: {
+            columns: [
+                {width: 800, header: "Stack",title:"_DATA_"},
+                {cellClass: "col1", value: "count", width: 100, header: "Count"},
+                {cellClass: "col2", value: "size", width: 100, header: "Size"}
+            ],
+            resizable:true
+        }
+    });
+
+});
+</script>
+</body>
+</html>
