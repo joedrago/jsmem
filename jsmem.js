@@ -59,15 +59,31 @@ function inflateNode(frameid, frame, parent, size)
   else
   {
     var fileAndLine, filename, lineNo, name;
-    if(frame == 'T')
+    if(frame == 'C')
     {
-      name = 'Total Live Allocations';
+      name = 'By Stacktrace (top down)';
+    }
+    else if(frame == 'D')
+    {
+      name = 'By Stacktrace (bottom up)';
+    }
+    else if(frame == 'F')
+    {
+      name = 'Anywhere in Stacktrace';
+    }
+    else if(frame == 'L')
+    {
+      name = 'Leaf Nodes Only';
     }
     else
     {
       fileAndLine = frame.split(":");
       filename = strings[parseInt(fileAndLine[0])];
       lineNo = parseInt(fileAndLine[1]);
+      if(isNaN(lineNo))
+      {
+        return false;
+      }
       name = filename+":"+lineNo;
     }
 
@@ -99,6 +115,7 @@ function inflateNode(frameid, frame, parent, size)
 
   node.data.count++;
   node.data.size += size;
+  return true;
 }
 
 function buildTree()
@@ -111,23 +128,91 @@ function buildTree()
   {
     var id = liveIds[i];
     var alloc = allocations[id];
+    var parent, stack, frameid;
 
-    var parent = '#';
-    var stack = alloc.stack.split("/");
-    stack.push("T");
-    var frameid = "";
+    if((i % 1000) == 0)
+    {
+      console.log("Processing "+i+"/"+liveIds.length+" allocations...");
+    }
+
+    parent = '#';
+    stack = alloc.stack.split("/");
+    stack.push("C");
+    frameid = "";
     for(var j = stack.length - 1; j >= 0; j--)
     {
       var frame = stack[j];
-      if(frame.length < 1)
+      if((frame != "C") && (frame.indexOf(":") == -1))
         continue;
 
       if(frameid.length > 0)
         frameid += "/";
       frameid += frame;
 
-      inflateNode(frameid, frame, parent, parseInt(alloc.size));
-      parent = frameid;
+      if(inflateNode(frameid, frame, parent, parseInt(alloc.size)))
+      {
+        parent = frameid;
+      }
+    }
+
+/*
+    parent = '#';
+    stack = alloc.stack.split("/");
+    stack.unshift("D");
+    frameid = "";
+    for(var j = 0; j < stack.length; j++)
+    {
+      var frame = stack[j];
+      if((frame != "D") && (frame.indexOf(":") == -1))
+        continue;
+
+      if(frameid.length > 0)
+        frameid += "/";
+      frameid += frame;
+
+      if(inflateNode(frameid, frame, parent, parseInt(alloc.size)))
+      {
+        parent = frameid;
+      }
+    }
+
+    parent = '#';
+    stack = alloc.stack.split("/");
+    stack.push("F");
+    frameid = "";
+    for(var j = stack.length - 1; j >= 0; j--)
+    {
+      var frame = stack[j];
+      if((frame != "F") && (frame.indexOf(":") == -1))
+        continue;
+
+      frameid = frame;
+
+      if(inflateNode(frameid, frame, parent, parseInt(alloc.size)))
+      {
+        parent = "F";
+      }
+    }
+*/
+    parent = '#';
+    stack = alloc.stack.split("/");
+    stack.unshift("L");
+    frameid = "";
+    var len = stack.length;
+    if(len > 2)
+      len = 2; // only visit leaves
+    for(var j = 0; j < len; j++)
+    {
+      var frame = stack[j];
+      if((frame != "L") && (frame.indexOf(":") == -1))
+        continue;
+
+      frameid = frame;
+
+      if(inflateNode(frameid, frame, parent, parseInt(alloc.size)))
+      {
+        parent = "L";
+      }
     }
   }
 
@@ -187,7 +272,7 @@ new lazy(fs.createReadStream(inputFilename)).on('end', onDataLoaded).lines.forEa
 // Server
 
 function getNodeChildren(id) {
-  console.log("id: " + id);
+  console.log("Requesting children for: " + id);
 
   if(children.hasOwnProperty(id))
   {
